@@ -9,6 +9,15 @@ Nueva app desktop de Facturas con persistencia en SQLite.
 - SQLite local con `better-sqlite3`
 - IPC seguro (sin `nodeIntegration`)
 
+## Arquitectura (modular)
+
+- `src/domain/types.ts`: tipos, contratos e interfaz de API desktop.
+- `src/domain/core.ts`: reglas de negocio y utilidades de facturación.
+- `src/domain/printing.ts`: plantilla imprimible y helpers de impresión.
+- `src/components/FormFields.tsx`: componentes de formulario reutilizables.
+- `src/components/views/*.tsx`: vistas de `Nueva factura`, `Lista` y `Configuración`.
+- `src/App.tsx`: orquestación de estado, IPC y composición de vistas.
+
 ## Base de datos
 
 Archivo SQLite:
@@ -32,6 +41,8 @@ Tablas:
 
 - `npm run dev`: desarrollo web
 - `npm run dev:desktop`: desarrollo desktop (Vite + Electron)
+- `npm run test`: ejecutar tests unitarios (Vitest)
+- `npm run test:watch`: tests en modo watch
 - `npm run build`: build renderer
 - `npm run preview`: preview web
 - `npm run start:desktop`: ejecutar desktop
@@ -45,6 +56,7 @@ Tablas:
 ```bash
 npm install
 npm run rebuild:native
+npm run test
 npm run dev:desktop
 ```
 

@@ -253,7 +253,9 @@ const createDatabase = (dbPath) => {
     );
 
     CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC);
-    INSERT OR IGNORE INTO meta(schema_version, migrated_at) VALUES (1, NULL);
+    INSERT INTO meta(schema_version, migrated_at)
+    SELECT 1, NULL
+    WHERE NOT EXISTS (SELECT 1 FROM meta);
   `)
 
   return db
@@ -307,6 +309,23 @@ const listInvoices = (db) => {
 
 const invoiceExists = (db, invoiceNumber) =>
   Boolean(db.prepare('SELECT 1 FROM invoices WHERE invoice_number = ?').get(invoiceNumber))
+
+const getNextCorrelativeForSerieYear = (db, serie, year) => {
+  const row = db
+    .prepare('SELECT MAX(correlative) AS max_correlative FROM invoices WHERE serie = ? AND year = ?')
+    .get(serie, year)
+
+  let correlative = Number(row?.max_correlative ?? 0) + 1
+  if (!Number.isFinite(correlative) || correlative < 1) {
+    correlative = 1
+  }
+
+  while (invoiceExists(db, composeInvoiceNumber(serie, year, correlative))) {
+    correlative += 1
+  }
+
+  return correlative
+}
 
 const insertInvoiceRow = (db, invoiceRow) => {
   db.prepare(
@@ -373,6 +392,37 @@ const isDatabaseEmpty = (db) => {
   return Number(row.count) === 0
 }
 
+const hasMigrationBeenAttempted = (db) => {
+  const row = db.prepare('SELECT migrated_at FROM meta WHERE migrated_at IS NOT NULL LIMIT 1').get()
+  return Boolean(row?.migrated_at)
+}
+
+const markMigrationAttempted = (db, timestamp = nowIso()) => {
+  db.prepare('UPDATE meta SET migrated_at = ?').run(timestamp)
+}
+
+const hasMeaningfulDataset = (payload) => {
+  if (!payload || typeof payload !== 'object') return false
+
+  if (Array.isArray(payload.facturas) && payload.facturas.length > 0) {
+    return true
+  }
+
+  const config = sanitizeConfig(payload.config)
+  if (!config) return false
+
+  return (
+    completePerson(config.emisor) ||
+    completePerson(config.inquilino) ||
+    config.nextCorrelative > 1 ||
+    config.serie !== 'ALQ' ||
+    config.defaultConcepto !== DEFAULT_CONCEPTO ||
+    config.defaultNotasLegales !== DEFAULT_NOTAS ||
+    config.ivaPct !== 21 ||
+    config.irpfPct !== 19
+  )
+}
+
 const buildDatasetFromLegacyStorage = (local) => {
   const emisor = local.emisor ? JSON.parse(local.emisor) : DATOS_VACIOS
   const inquilino = local.inquilino ? JSON.parse(local.inquilino) : DATOS_VACIOS
@@ -408,8 +458,12 @@ const runMigration = async (db, localPayload) => {
     return { status: 'skipped_existing' }
   }
 
+  if (hasMigrationBeenAttempted(db)) {
+    return { status: 'skipped_already_attempted' }
+  }
+
   const sharedSnapshot = await readJsonFileIfExists(LEGACY_SNAPSHOT_PATH())
-  if (sharedSnapshot && sharedSnapshot.version === 1 && sharedSnapshot.config) {
+  if (sharedSnapshot && sharedSnapshot.version === 1 && sharedSnapshot.config && hasMeaningfulDataset(sharedSnapshot)) {
     const result = importDataset(db, sharedSnapshot, nowIso())
     return {
       status: 'migrated_shared_snapshot',
@@ -420,7 +474,7 @@ const runMigration = async (db, localPayload) => {
   if (localPayload?.modern) {
     try {
       const modern = JSON.parse(localPayload.modern)
-      if (modern?.version === 1 && modern?.config) {
+      if (modern?.version === 1 && modern?.config && hasMeaningfulDataset(modern)) {
         const result = importDataset(db, modern, nowIso())
         return {
           status: 'migrated_modern_localstorage',
@@ -435,16 +489,19 @@ const runMigration = async (db, localPayload) => {
   if (localPayload?.emisor || localPayload?.inquilino || localPayload?.facturas || localPayload?.proximoNumero) {
     try {
       const legacy = buildDatasetFromLegacyStorage(localPayload)
-      const result = importDataset(db, legacy, nowIso())
-      return {
-        status: 'migrated_legacy_localstorage',
-        importedCount: result.facturas.length
+      if (hasMeaningfulDataset(legacy)) {
+        const result = importDataset(db, legacy, nowIso())
+        return {
+          status: 'migrated_legacy_localstorage',
+          importedCount: result.facturas.length
+        }
       }
     } catch {
       // no-op
     }
   }
 
+  markMigrationAttempted(db, nowIso())
   return { status: 'no_source' }
 }
 
@@ -467,11 +524,7 @@ const createInvoice = (db, draftInput) => {
 
   const serie = sanitizeSerie(config.serie) || 'ALQ'
   const year = getYearFromDate(issueDate)
-
-  let correlative = config.correlativeYear === year ? config.nextCorrelative : 1
-  while (invoiceExists(db, composeInvoiceNumber(serie, year, correlative))) {
-    correlative += 1
-  }
+  const correlative = getNextCorrelativeForSerieYear(db, serie, year)
 
   const baseCents = toCents(baseValue)
   const ivaBp = pctToBp(config.ivaPct)
@@ -538,6 +591,7 @@ const createInvoice = (db, draftInput) => {
 }
 
 let db = null
+let migrationInFlight = null
 
 const createPdfBufferFromHtml = async (html) => {
   const pdfWindow = new BrowserWindow({
@@ -603,7 +657,19 @@ app.whenReady().then(() => {
   }))
 
   ipcMain.handle('migration:run', async (_event, payload) => {
-    return runMigration(db, payload)
+    if (migrationInFlight) {
+      return migrationInFlight
+    }
+
+    migrationInFlight = (async () => {
+      try {
+        return await runMigration(db, payload)
+      } finally {
+        migrationInFlight = null
+      }
+    })()
+
+    return migrationInFlight
   })
 
   ipcMain.handle('config:get', async () => {
