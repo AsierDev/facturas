@@ -1,0 +1,85 @@
+{
+  "name": "facturas-desktop-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Facturas de alquiler desktop con Electron + SQLite",
+  "author": "Asier Perez",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "concurrently -k \"vite --host 127.0.0.1 --port 5180\" \"wait-on tcp:5180 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5180 electron .\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start:desktop": "electron .",
+    "rebuild:native": "electron-builder install-app-deps",
+    "dist:win": "npm run build && npm run rebuild:native && electron-builder --win nsis",
+    "dist:mac": "npm run build && npm run rebuild:native && electron-builder --mac dmg",
+    "dist:linux": "npm run build && npm run rebuild:native && electron-builder --linux AppImage"
+  },
+  "dependencies": {
+    "better-sqlite3": "11.8.1",
+    "clsx": "2.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.17",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "concurrently": "9.2.1",
+    "cross-env": "7.0.3",
+    "electron": "31.7.7",
+    "electron-builder": "25.1.8",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3",
+    "vite": "7.2.4",
+    "wait-on": "8.0.5"
+  },
+  "build": {
+    "appId": "com.facturas.desktop",
+    "productName": "Facturas Desktop",
+    "icon": "icon.png",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "mac": {
+      "icon": "icon.icns",
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
+    }
+  }
+}

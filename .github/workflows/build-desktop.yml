@@ -1,0 +1,65 @@
+name: Build Desktop Installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: ${{ matrix.app }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            app: web-app
+            distScript: dist:win
+          - os: macos-latest
+            app: web-app
+            distScript: dist:mac
+          - os: ubuntu-latest
+            app: web-app
+            distScript: dist:linux
+          - os: windows-latest
+            app: desktop-app
+            distScript: dist:win
+          - os: macos-latest
+            app: desktop-app
+            distScript: dist:mac
+          - os: ubuntu-latest
+            app: desktop-app
+            distScript: dist:linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: Rebuild native deps (desktop-app)
+        if: ${{ matrix.app == 'desktop-app' }}
+        working-directory: ${{ matrix.app }}
+        run: npm run rebuild:native
+
+      - name: Build installer
+        working-directory: ${{ matrix.app }}
+        run: npm run ${{ matrix.distScript }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-${{ matrix.os }}
+          path: ${{ matrix.app }}/release/**/*
+          if-no-files-found: error
