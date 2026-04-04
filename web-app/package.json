@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite",
     "dev:desktop": "concurrently -k \"vite --host 127.0.0.1 --port 5173\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "vite build",
     "preview": "vite preview",
     "start:desktop": "electron .",
@@ -36,6 +38,7 @@
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vite-plugin-singlefile": "2.3.0",
+    "vitest": "^4.1.2",
     "wait-on": "8.0.5"
   },
   "build": {

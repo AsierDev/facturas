@@ -48,6 +48,10 @@ jobs:
         working-directory: ${{ matrix.app }}
         run: npm ci
 
+      - name: Run tests
+        working-directory: ${{ matrix.app }}
+        run: npm run test
+
       - name: Rebuild native deps (desktop-app)
         if: ${{ matrix.app == 'desktop-app' }}
         working-directory: ${{ matrix.app }}

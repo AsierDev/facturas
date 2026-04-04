@@ -8,10 +8,22 @@ Versión actual de Facturas, mantenida y empaquetada como app desktop.
 - Wrapper Electron
 - Persistencia: `localStorage` del renderer
 
+## Arquitectura (modular)
+
+- `src/domain/types.ts`: contratos y tipos de dominio.
+- `src/domain/core.ts`: reglas de negocio y utilidades de facturación.
+- `src/domain/storage.ts`: carga/guardado, migración legacy y backup JSON.
+- `src/domain/printing.ts`: plantilla imprimible y helpers de impresión.
+- `src/components/FormFields.tsx`: componentes de formulario reutilizables.
+- `src/components/views/*.tsx`: vistas de `Nueva factura`, `Lista` y `Configuración`.
+- `src/App.tsx`: orquestación de estado y composición de vistas.
+
 ## Scripts
 
 - `npm run dev`: desarrollo web (Vite)
 - `npm run dev:desktop`: desarrollo desktop (Vite + Electron)
+- `npm run test`: ejecutar tests unitarios (Vitest)
+- `npm run test:watch`: tests en modo watch
 - `npm run build`: build web
 - `npm run preview`: preview web
 - `npm run start:desktop`: arrancar app desktop con build existente
@@ -23,6 +35,7 @@ Versión actual de Facturas, mantenida y empaquetada como app desktop.
 
 ```bash
 npm install
+npm run test
 npm run dev:desktop
 ```
 

@@ -29,6 +29,7 @@ Proyecto con dos aplicaciones separadas para facturación de alquiler:
 
 Cada app tiene scripts:
 
+- `npm run test`
 - `npm run dist:win`
 - `npm run dist:mac`
 - `npm run dist:linux`
@@ -65,3 +66,12 @@ Y metadata de app en `package.json` (`description`, `author`, rutas de icono par
 3. Abrir la app desde el icono del escritorio o menú inicio.
 
 No necesita terminal para uso diario.
+
+## Validación recomendada antes de subir cambios
+
+En cada app (`web-app` y `desktop-app`):
+
+```bash
+npm run test
+npm run build
+```
